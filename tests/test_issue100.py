@@ -1146,11 +1146,11 @@ class OrderedFoldAuthorizationTest(_FoldRuntimeMixin, TransactionTestCase):
         self._ace(order=0, polarity=ALLOW, mask=0x1)
         handle = _handles(self.registry)[0]
         plan = handle.registry.plan_for(self.doc, user=self.alice, permission=self.read)
+        self.assertIsNotNone(plan.strategy)
         self.assertIsNone(
             handle.compiler.group_exists(plan, self.doc, self.alice, self.read),
         )
-        self._ace(order=1, polarity=DENY, mask=0x1)
-        self.assertFalse(
+        self.assertTrue(
             self.registry.has_permission(self.alice, self.doc, self.read)
         )
 

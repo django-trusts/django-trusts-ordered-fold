@@ -9,9 +9,8 @@ permissions:
   contents: read
 
 env:
-  # Core django-trusts#191 companion that still exports
-  # BackendHandle.register_ordered_fold.
-  COMPANION_KERNEL_SHA: a8bacc7012b3d8d62d4b3245a9c63e44cbe733d0
+  # Core C1 squash (reviewed head 7a84d57c4da0bd5b264e2c7f9c5f7329d42df8c7).
+  COMPANION_KERNEL_SHA: 6934894489d4fc0e46de88b55b9a27f5f2eb2b41
 
 jobs:
   tests:
@@ -33,7 +32,7 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install pinned core then OrderedFold façade
+    - name: Install pinned core then OrderedFold engine
       run: |
         python -m pip install --upgrade pip
         python -m pip install "Django>=6.1,<6.2" coverage
@@ -41,12 +40,58 @@ jobs:
         python -m pip install -e . --config-settings editable_mode=compat
     - name: Exact pinned core head
       run: |
-        test "${COMPANION_KERNEL_SHA}" = "a8bacc7012b3d8d62d4b3245a9c63e44cbe733d0"
-        test "$(git -C .deps/django-trusts rev-parse HEAD)" = "a8bacc7012b3d8d62d4b3245a9c63e44cbe733d0"
-    - name: Package façade tests
+        test "${COMPANION_KERNEL_SHA}" = "6934894489d4fc0e46de88b55b9a27f5f2eb2b41"
+        test "$(git -C .deps/django-trusts rev-parse HEAD)" = "6934894489d4fc0e46de88b55b9a27f5f2eb2b41"
+    - name: Package engine tests
       run: |
         coverage run -m tests.runtests
         coverage report
+
+  tests-orderedfold-pg:
+    name: tests OrderedFold PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: trusts
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      KERNEL_CHECKOUT: ${{ github.workspace }}/.deps/django-trusts
+      TRUSTS_TEST_DATABASE: postgresql
+      TRUSTS_PG_NAME: trusts
+      TRUSTS_PG_USER: postgres
+      TRUSTS_PG_PASSWORD: postgres
+      TRUSTS_PG_HOST: 127.0.0.1
+      TRUSTS_PG_PORT: 5432
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: django-trusts/django-trusts
+        ref: ${{ env.COMPANION_KERNEL_SHA }}
+        path: .deps/django-trusts
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install pinned core, package, and psycopg
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install "Django>=6.1,<6.2" "psycopg[binary]" coverage
+        python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
+        python -m pip install -e . --config-settings editable_mode=compat
+    - name: OrderedFold PostgreSQL regressions
+      env:
+        DJANGO_SETTINGS_MODULE: tests.fold_settings
+      run: python -m tests.runtests tests.test_issue100 tests.test_fixed_query tests.test_backend
 
   core-matrix:
     name: pinned core kernel matrix
@@ -63,13 +108,13 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: "3.12"
-    - name: Install pinned core then façade
+    - name: Install pinned core then engine
       run: |
         python -m pip install --upgrade pip
         python -m pip install "Django>=6.1,<6.2" coverage
         python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
         python -m pip install -e . --config-settings editable_mode=compat
-    - name: Core kernel suite at the P1 pin
+    - name: Core kernel suite at the C1 pin
       working-directory: .deps/django-trusts
       run: python -m tests.runtests
 
@@ -98,7 +143,7 @@ jobs:
         twine check dist/*
     - name: Package metadata (version, core floor, LICENSE)
       run: python scripts/verify-package-metadata.py
-    - name: Wheel install + six-name import from outside the checkout
+    - name: Wheel install + public import from outside the checkout
       run: |
         WORK="$(mktemp -d)"
         python -m pip install "Django>=6.1,<6.2"

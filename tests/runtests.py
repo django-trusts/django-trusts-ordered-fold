@@ -35,6 +35,9 @@ NORMAL_SUITE = [
     'tests.test_packaging',
     'tests.test_facade',
     'tests.test_register',
+    'tests.test_backend',
+    'tests.test_fixed_query',
+    'tests.test_issue100',
 ]
 
 

@@ -8,22 +8,29 @@ points at `README.md`, not this file.
 ## Current pairing
 
 This tree is `django-trusts-ordered-fold==1.0.0.dev0` pairing against
-Core `dev` at `a8bacc7012b3d8d62d4b3245a9c63e44cbe733d0` (still contains
-`BackendHandle.register_ordered_fold`).
+Core `DEV_standalone_ordered_fold` at
+`6934894489d4fc0e46de88b55b9a27f5f2eb2b41` (C1 squash; reviewed head
+was `7a84d57c4da0bd5b264e2c7f9c5f7329d42df8c7`). Core still contains
+shims (`BackendHandle.register_ordered_fold`, `trusts.ordered_fold`)
+until C2.
 
-P1 is the standalone façade only. Import root is `trusts_ordered_fold`.
-Do not create or reuse `trusts.ordered_fold`. Do not move the engine,
-open a Core or Windows PR, or add `TrustsOrderedFoldModelBackend`.
+P2 owns the PostgreSQL OrderedFold engine and the concrete
+`TrustsOrderedFoldModelBackend`. Import root is `trusts_ordered_fold`.
+Do not create or reuse `trusts.ordered_fold`. Topology A only: no
+relationship registration, mixed plan, sibling borrowing,
+`attach_grant_branch`, callbacks, or Core imports of this package.
 
 `Requires-Dist`: `django-trusts>=1.0.0.dev3,<2`.
 
 ## Verification
 
-Pair CI pins Core `a8bacc7012b3d8d62d4b3245a9c63e44cbe733d0` only.
-Package tests must prove the six public imports, the extension-owned
-`register_ordered_fold(backend, source, fold)` forwarder, registration
-acceptance/rejection, zero-SQL registration, exact-path ownership, and
-freeze. The pinned Core kernel suite must stay green.
+Pair CI pins Core `6934894489d4fc0e46de88b55b9a27f5f2eb2b41` only.
+Package tests must prove public imports, extension-owned
+`register_ordered_fold`, registration acceptance/rejection, zero-SQL
+registration, exact-path ownership, freeze, validation, renderer,
+fail-closed vendor gate, fixed query count, `trusts_ordered_fold.E001`,
+and `TrustsOrderedFoldModelBackend`. PostgreSQL CI runs the ported
+engine suite. The pinned Core kernel suite must stay green.
 
 ## License
 

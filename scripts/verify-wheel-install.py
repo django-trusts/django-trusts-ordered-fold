@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the wheel outside the checkout and import the six public names."""
+"""Install the wheel outside the checkout and import the public names."""
 
 from __future__ import annotations
 
@@ -33,27 +33,22 @@ settings.configure(
     DEFAULT_AUTO_FIELD='django.db.models.AutoField',
 )
 django.setup()
-from trusts.core import (
-    FlatToken as CoreFlatToken,
-    MaskEntry as CoreMaskEntry,
-    OrderedFold as CoreOrderedFold,
-    PermissionMaskDomain as CorePermissionMaskDomain,
-    PolarityMap as CorePolarityMap,
-)
 from trusts_ordered_fold import (
     FlatToken,
     MaskEntry,
     OrderedFold,
     PermissionMaskDomain,
     PolarityMap,
+    TrustsOrderedFoldModelBackend,
     register_ordered_fold,
 )
-assert OrderedFold is CoreOrderedFold
-assert PermissionMaskDomain is CorePermissionMaskDomain
-assert MaskEntry is CoreMaskEntry
-assert PolarityMap is CorePolarityMap
-assert FlatToken is CoreFlatToken
+assert OrderedFold.__module__ == 'trusts_ordered_fold'
+assert PermissionMaskDomain.__module__ == 'trusts_ordered_fold'
+assert MaskEntry.__module__ == 'trusts_ordered_fold'
+assert PolarityMap.__module__ == 'trusts_ordered_fold'
+assert FlatToken.__module__ == 'trusts_ordered_fold'
 assert callable(register_ordered_fold)
+assert TrustsOrderedFoldModelBackend.__name__ == 'TrustsOrderedFoldModelBackend'
 print('wheel import ok')
 """
     subprocess.check_call(

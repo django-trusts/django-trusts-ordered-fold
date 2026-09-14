@@ -7,14 +7,16 @@ from django.test import SimpleTestCase, TransactionTestCase
 from django.test.utils import isolate_apps
 
 from trusts.core import (
+    BackendHandle,
+    PlanQueryCompiler,
     Ref,
     TrustsConfigurationError,
     TrustsRegistry,
-    _public_path_segments,
     _resolve_forward_singles,
     _resolve_path,
 )
-from trusts.ordered_fold import validate_ordered_fold
+from trusts_ordered_fold.engine import validate_ordered_fold
+from trusts_ordered_fold.registry import _public_path_segments
 
 from tests.helpers import (
     ALLOW,
@@ -59,14 +61,27 @@ class RegisterAcceptanceTest(SimpleTestCase):
             compiled,
         )
 
-    def test_forward_matches_core_handle_method(self):
+    def test_function_matches_handle_method(self):
         Permission, Document, Ace = direct_models(suffix='Match')
         fold = public_direct_fold(Ace, Permission, Document)
         via_package = handle(path='tests.ordered-fold.via-package')
-        via_core = handle(path='tests.ordered-fold.via-core')
+        via_handle = handle(path='tests.ordered-fold.via-handle')
         package_compiled = register_ordered_fold(via_package, Ace, fold)
-        core_compiled = via_core.register_ordered_fold(Ace, fold)
-        self.assertEqual(package_compiled, core_compiled)
+        handle_compiled = via_handle.register_ordered_fold(Ace, fold)
+        self.assertEqual(package_compiled, handle_compiled)
+
+    def test_core_handle_is_rejected(self):
+        Permission, Document, Ace = direct_models(suffix='Core')
+        core_handle = BackendHandle(
+            path='tests.ordered-fold.core-shim',
+            registry=TrustsRegistry(),
+            compiler=PlanQueryCompiler(),
+        )
+        with self.assertRaises(TrustsConfigurationError):
+            register_ordered_fold(
+                core_handle, Ace, public_direct_fold(Ace, Permission, Document),
+            )
+        self.assertEqual(core_handle.registry.strategies, ())
 
 
 @isolate_apps(
@@ -172,11 +187,10 @@ class RegisterRejectionTest(SimpleTestCase):
 class RegisterFreezeTest(SimpleTestCase):
     def test_freeze_raises_before_path_resolution(self):
         Permission, Document, Ace = direct_models()
-        registry = TrustsRegistry()
-        backend = handle(registry)
-        registry.freeze()
+        backend = handle()
+        backend.registry.freeze()
         with patch(
-            'trusts.core._public_path_segments',
+            'trusts_ordered_fold.registry._public_path_segments',
             wraps=_public_path_segments,
         ) as segments:
             with patch(
@@ -188,7 +202,7 @@ class RegisterFreezeTest(SimpleTestCase):
                     wraps=_resolve_path,
                 ) as anypath:
                     with patch(
-                        'trusts.ordered_fold.validate_ordered_fold',
+                        'trusts_ordered_fold.engine.validate_ordered_fold',
                         wraps=validate_ordered_fold,
                     ) as validate:
                         with self.assertRaises(TrustsConfigurationError) as ctx:
@@ -202,13 +216,12 @@ class RegisterFreezeTest(SimpleTestCase):
         resolve.assert_not_called()
         anypath.assert_not_called()
         validate.assert_not_called()
-        self.assertEqual(registry.strategies, ())
+        self.assertEqual(backend.registry.strategies, ())
 
     def test_freeze_wins_over_invalid_grammar(self):
         Permission, Document, Ace = direct_models()
-        registry = TrustsRegistry()
-        backend = handle(registry)
-        registry.freeze()
+        backend = handle()
+        backend.registry.freeze()
         with self.assertRaises(TrustsConfigurationError) as ctx:
             register_ordered_fold(backend, Ace, OrderedFold(
                 content=Document,
@@ -228,7 +241,7 @@ class RegisterFreezeTest(SimpleTestCase):
                 domain=PermissionMaskDomain(Permission, (MaskEntry('read', 1),)),
             ))
         self.assertIn('frozen', str(ctx.exception).lower())
-        self.assertEqual(registry.strategies, ())
+        self.assertEqual(backend.registry.strategies, ())
 
 
 @isolate_apps(

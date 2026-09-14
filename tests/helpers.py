@@ -1,17 +1,18 @@
-"""Isolated OrderedFold fixtures for façade registration proofs."""
+"""Isolated OrderedFold fixtures for registration and engine proofs."""
 
 from contextlib import contextmanager
 
 from django.contrib.auth import get_user_model
 from django.db import connection, models
 
-from trusts.core import BackendHandle, PlanQueryCompiler, TrustsRegistry
-from trusts.query import AuthorizedManager
-
 from trusts_ordered_fold import (
+    AuthorizedManager,
     FlatToken,
     MaskEntry,
     OrderedFold,
+    OrderedFoldBackendHandle,
+    OrderedFoldQueryCompiler,
+    OrderedFoldRegistry,
     PermissionMaskDomain,
     PolarityMap,
 )
@@ -35,12 +36,43 @@ def tables(*model_classes):
 
 def handle(registry=None, path='tests.ordered-fold.handle-a'):
     if registry is None:
-        registry = TrustsRegistry()
-    return BackendHandle(
+        registry = OrderedFoldRegistry()
+    return OrderedFoldBackendHandle(
         path=path,
         registry=registry,
-        compiler=PlanQueryCompiler(),
+        compiler=OrderedFoldQueryCompiler(),
     )
+
+
+def live_fold_config(apps_registry=None):
+    """The installed OrderedFold implementation owner."""
+    from tests.fold_host.apps import FoldHostConfig
+    from trusts.apps import implementation_configs
+    from trusts.core import TrustsConfigurationError
+
+    configs = implementation_configs(apps_registry)
+    hosts = [config for config in configs if type(config) is FoldHostConfig]
+    if len(hosts) == 1:
+        return hosts[0]
+    folds = [
+        config for config in configs
+        if getattr(config, '_authorization_family', None) == 'ordered_fold'
+    ]
+    if len(folds) == 1:
+        return folds[0]
+    raise TrustsConfigurationError(
+        'live_fold_config() needs exactly one OrderedFold owner; got %r'
+        % (configs,)
+    )
+
+
+def isolate_live_registry(config, registry, path=None):
+    """Swap a standalone registry into the live store without freezing."""
+    if path is None:
+        paths = config._configured_trusts_paths()
+        path = paths[0]
+    config.registries[path] = registry
+    return registry
 
 
 def direct_models(*, suffix=''):

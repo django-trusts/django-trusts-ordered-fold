@@ -2,14 +2,10 @@
 
 PostgreSQL ordered allow/deny authorization backend for django-trusts.
 
-This P1 package is a **provisional façade**. It re-exports Core's current
-OrderedFold construction types and forwards registration to Core's
-`BackendHandle.register_ordered_fold`. The engine still lives in Core.
-P2 will move the engine here and add `TrustsOrderedFoldModelBackend`.
-
-Import root is `trusts_ordered_fold`. Do **not** import
-`trusts.ordered_fold` from this package — that module remains Core-owned
-until Core deletion.
+This package owns the OrderedFold engine and the concrete
+`TrustsOrderedFoldModelBackend`. Import root is `trusts_ordered_fold`.
+Do **not** import `trusts.ordered_fold` from this package — that module
+remains Core-owned until Core deletion.
 
 ## Install
 
@@ -20,7 +16,13 @@ pip install django-trusts-ordered-fold
 `django-trusts` arrives as a dependency (`>=1.0.0.dev3,<2`). Until 1.x
 is on PyPI, install Core from the pinned git revision used by this
 package's CI. Do **not** add `'trusts'` or `'trusts_ordered_fold'` to
-`INSTALLED_APPS`. This package ships no Django app in P1.
+`INSTALLED_APPS`. List `TrustsOrderedFoldModelBackend` (or a subclass)
+in `AUTHENTICATION_BACKENDS` and own that path by subclassing
+`OrderedFoldImplementationConfig`. Setting `_authorization_family =
+'ordered_fold'` on a plain `TrustsImplementationConfig` is not enough:
+Core's `_create_registry()` / `_create_handle()` still produce
+`TrustsRegistry` / `BackendHandle`, and `register_ordered_fold()`
+rejects those types.
 
 ## Public surface
 
@@ -29,10 +31,15 @@ from trusts_ordered_fold import (
     FlatToken,
     MaskEntry,
     OrderedFold,
+    OrderedFoldImplementationConfig,
     PermissionMaskDomain,
     PolarityMap,
+    TrustsOrderedFoldModelBackend,
     register_ordered_fold,
 )
+
+# AUTHENTICATION_BACKENDS includes
+# 'trusts_ordered_fold.backends.TrustsOrderedFoldModelBackend'
 
 register_ordered_fold(backend, Ace, OrderedFold(
     content=Document,
@@ -53,32 +60,36 @@ register_ordered_fold(backend, Ace, OrderedFold(
 ))
 ```
 
-`register_ordered_fold(backend, source, fold)` forwards to
-`backend.register_ordered_fold(source, fold)` on the current Core
-handle. Registration-time validation, zero-SQL registration, exact-path
-ownership, and freeze behavior are unchanged.
+`register_ordered_fold(backend, source, fold)` validates (zero SQL),
+compiles an immutable strategy, and stores it on the OrderedFold
+registry for that exact backend path. It does not call Core
+`BackendHandle.register_ordered_fold`.
 
-The five declaration types are the same objects Core exports today, so
-`isinstance` checks in Core validation succeed.
+Importing this package registers system check `trusts_ordered_fold.E001`
+without requiring `INSTALLED_APPS`. Silencing the check does not create
+a fallback grant. An applicable fold on a non-PostgreSQL connection
+raises `TrustsConfigurationError`.
 
 ## Supported versions
 
 - Python 3.12, 3.13, and 3.14
 - Django 6.1
 - django-trusts 1.x, installed as a dependency and tested at Core
-  `a8bacc7012b3d8d62d4b3245a9c63e44cbe733d0`
+  `6934894489d4fc0e46de88b55b9a27f5f2eb2b41`
 
 ## Known limitations
 
-- This façade is provisional and excluded from the normal 1.x
+- This surface is provisional and excluded from the normal 1.x
   compatibility guarantee. Signatures or location may change.
-- P1 does not ship `TrustsOrderedFoldModelBackend`, the PostgreSQL
-  renderer, or `trusts_ordered_fold.E001`. Those arrive in P2.
-- OrderedFold evaluation remains PostgreSQL-only in Core. There is no
+- OrderedFold evaluation is PostgreSQL-only. There is no
   OrderedFold-on-SQLite support.
-- Do not copy or import Core renderer helpers
-  (`OrderedFoldAllowed`, `RegisteredStrategy`,
-  `ordered_fold_connection_supported`).
+- Group projection is unsupported.
+- Mixed relationship/OrderedFold QuerySet and common-permission
+  combination is not a 1.0 contract. Object-level `User.has_perm` uses
+  Django's ordered backend OR across families.
+- Do not import Core renderer helpers (`OrderedFoldAllowed`,
+  `RegisteredStrategy`, `ordered_fold_connection_supported`) from
+  `trusts.ordered_fold`.
 
 ## Migration and API
 

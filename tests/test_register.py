@@ -35,7 +35,7 @@ from trusts_ordered_fold import (
 
 
 @isolate_apps(
-    'trusts_ordered_fold_tests',
+    'tests',
     'django.contrib.auth',
     'django.contrib.contenttypes',
 )
@@ -70,7 +70,7 @@ class RegisterAcceptanceTest(SimpleTestCase):
 
 
 @isolate_apps(
-    'trusts_ordered_fold_tests',
+    'tests',
     'django.contrib.auth',
     'django.contrib.contenttypes',
 )
@@ -165,7 +165,7 @@ class RegisterRejectionTest(SimpleTestCase):
 
 
 @isolate_apps(
-    'trusts_ordered_fold_tests',
+    'tests',
     'django.contrib.auth',
     'django.contrib.contenttypes',
 )
@@ -232,7 +232,7 @@ class RegisterFreezeTest(SimpleTestCase):
 
 
 @isolate_apps(
-    'trusts_ordered_fold_tests',
+    'tests',
     'django.contrib.auth',
     'django.contrib.contenttypes',
 )
@@ -262,7 +262,7 @@ class RegisterOwnershipTest(SimpleTestCase):
 
 
 @isolate_apps(
-    'trusts_ordered_fold_tests',
+    'tests',
     'django.contrib.auth',
     'django.contrib.contenttypes',
 )

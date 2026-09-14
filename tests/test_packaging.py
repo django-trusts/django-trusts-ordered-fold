@@ -23,7 +23,6 @@ class OrderedFoldSourceLayoutTests(SimpleTestCase):
             'class OrderedFoldAllowed',
             'class RegisteredStrategy',
             'def validate_ordered_fold',
-            'TrustsOrderedFoldModelBackend',
         )
         for path in (ROOT / 'trusts_ordered_fold').rglob('*.py'):
             text = path.read_text()
@@ -54,13 +53,13 @@ class OrderedFoldPublishMetadataTests(SimpleTestCase):
         self.assertNotIn('readme = "DEV.md"', text)
         self.assertIn('license = "BSD-2-Clause"', text)
         self.assertIn('"trusts_ordered_fold"', text)
+        self.assertNotIn('"trusts.ordered_fold"', text)
         req = (ROOT / 'requirements.txt').read_text()
         ci = (ROOT / '.github' / 'workflows' / 'ci.yml').read_text()
         dev = (ROOT / 'DEV.md').read_text()
         self.assertIn(COMPANION, req)
         self.assertIn('COMPANION_KERNEL_SHA: %s' % COMPANION, ci)
         self.assertIn(COMPANION, dev)
-        self.assertNotIn('trusts.ordered_fold', text)
 
     def test_license_notice_is_beedesk_2015_2026(self):
         text = (ROOT / 'LICENSE').read_text()

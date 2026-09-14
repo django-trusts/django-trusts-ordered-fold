@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [DEV_standalone_ordered_fold]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Core django-trusts#191 companion that still exports
+  # BackendHandle.register_ordered_fold.
+  COMPANION_KERNEL_SHA: a8bacc7012b3d8d62d4b3245a9c63e44cbe733d0
+
+jobs:
+  tests:
+    name: tests vs pinned core (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    env:
+      KERNEL_CHECKOUT: ${{ github.workspace }}/.deps/django-trusts
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: django-trusts/django-trusts
+        ref: ${{ env.COMPANION_KERNEL_SHA }}
+        path: .deps/django-trusts
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install pinned core then OrderedFold façade
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install "Django>=6.1,<6.2" coverage
+        python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
+        python -m pip install -e . --config-settings editable_mode=compat
+    - name: Exact pinned core head
+      run: |
+        test "${COMPANION_KERNEL_SHA}" = "a8bacc7012b3d8d62d4b3245a9c63e44cbe733d0"
+        test "$(git -C .deps/django-trusts rev-parse HEAD)" = "a8bacc7012b3d8d62d4b3245a9c63e44cbe733d0"
+    - name: Package façade tests
+      run: |
+        coverage run -m tests.runtests
+        coverage report
+
+  core-matrix:
+    name: pinned core kernel matrix
+    runs-on: ubuntu-latest
+    env:
+      KERNEL_CHECKOUT: ${{ github.workspace }}/.deps/django-trusts
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: django-trusts/django-trusts
+        ref: ${{ env.COMPANION_KERNEL_SHA }}
+        path: .deps/django-trusts
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install pinned core then façade
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install "Django>=6.1,<6.2" coverage
+        python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
+        python -m pip install -e . --config-settings editable_mode=compat
+    - name: Core kernel suite at the P1 pin
+      working-directory: .deps/django-trusts
+      run: python -m tests.runtests
+
+  package:
+    name: package / wheel
+    runs-on: ubuntu-latest
+    env:
+      KERNEL_CHECKOUT: ${{ github.workspace }}/.deps/django-trusts
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: django-trusts/django-trusts
+        ref: ${{ env.COMPANION_KERNEL_SHA }}
+        path: .deps/django-trusts
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install packaging tools and pinned core
+      run: |
+        python -m pip install --upgrade pip build twine "Django>=6.1,<6.2"
+        python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
+    - name: Build sdist and wheel
+      run: |
+        python -m build
+        twine check dist/*
+    - name: Package metadata (version, core floor, LICENSE)
+      run: python scripts/verify-package-metadata.py
+    - name: Wheel install + six-name import from outside the checkout
+      run: |
+        WORK="$(mktemp -d)"
+        python -m pip install "Django>=6.1,<6.2"
+        python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
+        VERIFY_WORKDIR="$WORK" python scripts/verify-wheel-install.py

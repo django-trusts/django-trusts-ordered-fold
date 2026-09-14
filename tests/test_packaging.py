@@ -61,9 +61,9 @@ class OrderedFoldPublishMetadataTests(SimpleTestCase):
         self.assertIn('COMPANION_KERNEL_SHA: %s' % COMPANION, ci)
         self.assertIn(COMPANION, dev)
 
-    def test_license_notice_is_beedesk_2015_2026(self):
+    def test_license_notice_is_beedesk_2026(self):
         text = (ROOT / 'LICENSE').read_text()
-        self.assertIn('Copyright (c) 2015-2026, BeeDesk, Inc.', text)
+        self.assertIn('Copyright (c) 2026, BeeDesk, Inc.', text)
         self.assertNotIn('and contributors', text.split('THIS SOFTWARE')[0])
         self.assertIn('BSD-2-Clause', (ROOT / 'pyproject.toml').read_text())
 

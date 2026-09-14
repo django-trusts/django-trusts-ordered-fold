@@ -27,5 +27,5 @@ freeze. The pinned Core kernel suite must stay green.
 
 ## License
 
-BSD-2-Clause. Copyright holder is exactly BeeDesk, Inc. Notice years
-are 2015-2026.
+BSD-2-Clause. Copyright holder is exactly BeeDesk, Inc. Notice year
+is 2026.

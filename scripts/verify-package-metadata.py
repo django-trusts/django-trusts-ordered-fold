@@ -73,8 +73,8 @@ def _check_wheel(wheel: Path) -> None:
         if not license_hits:
             raise SystemExit('wheel missing LICENSE: %s' % names[-20:])
         notice = zf.read(license_hits[0]).decode()
-        if 'Copyright (c) 2015-2026, BeeDesk, Inc.' not in notice:
-            raise SystemExit('wheel LICENSE notice is not BeeDesk 2015-2026')
+        if 'Copyright (c) 2026, BeeDesk, Inc.' not in notice:
+            raise SystemExit('wheel LICENSE notice is not BeeDesk 2026')
         if 'django_trusts_ordered_fold-1.0.0.dev0' not in wheel.name:
             raise SystemExit('wheel filename is not 1.0.0.dev0: %s' % wheel.name)
         if any(name.endswith('migrates.md') for name in names):
@@ -94,8 +94,8 @@ def _check_sdist(sdist: Path) -> None:
         if license_name is None:
             raise SystemExit('sdist missing LICENSE')
         notice = tf.extractfile(license_name).read().decode()
-        if 'Copyright (c) 2015-2026, BeeDesk, Inc.' not in notice:
-            raise SystemExit('sdist LICENSE notice is not BeeDesk 2015-2026')
+        if 'Copyright (c) 2026, BeeDesk, Inc.' not in notice:
+            raise SystemExit('sdist LICENSE notice is not BeeDesk 2026')
         pkg_info = next((name for name in names if name.endswith('/PKG-INFO')), None)
         if pkg_info is None:
             raise SystemExit('sdist missing PKG-INFO')

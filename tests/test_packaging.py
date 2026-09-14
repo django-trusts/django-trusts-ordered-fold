@@ -6,7 +6,7 @@ from django.test import SimpleTestCase
 
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPANION = 'b2ad8aa052eef25fd05a79b2dfba7b7049af148d'
+COMPANION = '9875c02571b9b978c27b26ce48d0c62154547a86'
 
 
 class OrderedFoldSourceLayoutTests(SimpleTestCase):

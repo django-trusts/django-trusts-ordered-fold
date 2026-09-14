@@ -74,7 +74,7 @@ raises `TrustsConfigurationError`.
 - Python 3.12, 3.13, and 3.14
 - Django 6.1
 - django-trusts 1.x, installed as a dependency and tested at Core
-  `b2ad8aa052eef25fd05a79b2dfba7b7049af148d`
+  `9875c02571b9b978c27b26ce48d0c62154547a86`
 
 ## Known limitations
 

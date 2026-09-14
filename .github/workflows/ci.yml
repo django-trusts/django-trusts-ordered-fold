@@ -9,8 +9,9 @@ permissions:
   contents: read
 
 env:
-  # Core C2 head (PR #197; reviewed at this exact SHA).
-  COMPANION_KERNEL_SHA: 72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b
+  # Core C2 tip (PR #197). Product deletion is 72b41a0; later
+  # commits are PR-scoped compat jobs only.
+  COMPANION_KERNEL_SHA: b2ad8aa052eef25fd05a79b2dfba7b7049af148d
 
 jobs:
   tests:
@@ -40,8 +41,8 @@ jobs:
         python -m pip install -e . --config-settings editable_mode=compat
     - name: Exact pinned core head
       run: |
-        test "${COMPANION_KERNEL_SHA}" = "72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b"
-        test "$(git -C .deps/django-trusts rev-parse HEAD)" = "72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b"
+        test "${COMPANION_KERNEL_SHA}" = "b2ad8aa052eef25fd05a79b2dfba7b7049af148d"
+        test "$(git -C .deps/django-trusts rev-parse HEAD)" = "b2ad8aa052eef25fd05a79b2dfba7b7049af148d"
     - name: Package engine tests
       run: |
         coverage run -m tests.runtests

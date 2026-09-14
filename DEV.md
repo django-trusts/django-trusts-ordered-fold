@@ -9,8 +9,9 @@ points at `README.md`, not this file.
 
 This tree is `django-trusts-ordered-fold==1.0.0.dev0` pairing against
 Core `DEV_standalone_ordered_fold` at
-`72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b` (C2 deletion head from
-Core PR #197). Core no longer ships OrderedFold shims
+`b2ad8aa052eef25fd05a79b2dfba7b7049af148d` (C2 tip from Core PR #197;
+product deletion is `72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b`).
+Core no longer ships OrderedFold shims
 (`BackendHandle.register_ordered_fold`, `trusts.ordered_fold`,
 declaration re-exports, or `TrustsRegistry.strategies`).
 
@@ -24,7 +25,7 @@ relationship registration, mixed plan, sibling borrowing,
 
 ## Verification
 
-Pair CI pins Core `72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b` only.
+Pair CI pins Core `b2ad8aa052eef25fd05a79b2dfba7b7049af148d` only.
 Package tests must prove public imports, extension-owned
 `register_ordered_fold`, registration acceptance/rejection, zero-SQL
 registration, exact-path ownership, freeze, validation, renderer,

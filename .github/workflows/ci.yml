@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 env:
-  # Core C1 squash (reviewed head 7a84d57c4da0bd5b264e2c7f9c5f7329d42df8c7).
-  COMPANION_KERNEL_SHA: 6934894489d4fc0e46de88b55b9a27f5f2eb2b41
+  # Core C2 squash (django-trusts/django-trusts#197 / #195).
+  COMPANION_KERNEL_SHA: 9875c02571b9b978c27b26ce48d0c62154547a86
 
 jobs:
   tests:
@@ -40,8 +40,8 @@ jobs:
         python -m pip install -e . --config-settings editable_mode=compat
     - name: Exact pinned core head
       run: |
-        test "${COMPANION_KERNEL_SHA}" = "6934894489d4fc0e46de88b55b9a27f5f2eb2b41"
-        test "$(git -C .deps/django-trusts rev-parse HEAD)" = "6934894489d4fc0e46de88b55b9a27f5f2eb2b41"
+        test "${COMPANION_KERNEL_SHA}" = "9875c02571b9b978c27b26ce48d0c62154547a86"
+        test "$(git -C .deps/django-trusts rev-parse HEAD)" = "9875c02571b9b978c27b26ce48d0c62154547a86"
     - name: Package engine tests
       run: |
         coverage run -m tests.runtests
@@ -114,7 +114,7 @@ jobs:
         python -m pip install "Django>=6.1,<6.2" coverage
         python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
         python -m pip install -e . --config-settings editable_mode=compat
-    - name: Core kernel suite at the C1 pin
+    - name: Core kernel suite at the C2 pin
       working-directory: .deps/django-trusts
       run: python -m tests.runtests
 

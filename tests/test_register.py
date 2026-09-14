@@ -81,7 +81,8 @@ class RegisterAcceptanceTest(SimpleTestCase):
             register_ordered_fold(
                 core_handle, Ace, public_direct_fold(Ace, Permission, Document),
             )
-        self.assertEqual(core_handle.registry.strategies, ())
+        self.assertFalse(hasattr(core_handle.registry, 'strategies'))
+        self.assertFalse(hasattr(core_handle, 'register_ordered_fold'))
 
 
 @isolate_apps(

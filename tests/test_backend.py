@@ -117,8 +117,8 @@ class VendorCheckOwnershipTest(TransactionTestCase):
         register_ordered_fold(
             handle(fold), Ace, public_direct_fold(Ace, Permission, Document),
         )
-        # A relationship-family owner must not be scanned even if it
-        # somehow holds strategies (Core shim coexistence).
+        # A relationship-family owner must not be scanned even if a
+        # leftover store somehow holds fold strategies.
         class RelConfig(TrustsImplementationConfig):
             name = 'tests'
             label = 'rel_chk'

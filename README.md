@@ -17,10 +17,12 @@ pip install django-trusts-ordered-fold
 is on PyPI, install Core from the pinned git revision used by this
 package's CI. Do **not** add `'trusts'` or `'trusts_ordered_fold'` to
 `INSTALLED_APPS`. List `TrustsOrderedFoldModelBackend` (or a subclass)
-in `AUTHENTICATION_BACKENDS` and own that path from a
-`TrustsImplementationConfig` subclass that sets
-`_authorization_family = 'ordered_fold'` — or subclass
-`OrderedFoldImplementationConfig`.
+in `AUTHENTICATION_BACKENDS` and own that path by subclassing
+`OrderedFoldImplementationConfig`. Setting `_authorization_family =
+'ordered_fold'` on a plain `TrustsImplementationConfig` is not enough:
+Core's `_create_registry()` / `_create_handle()` still produce
+`TrustsRegistry` / `BackendHandle`, and `register_ordered_fold()`
+rejects those types.
 
 ## Public surface
 

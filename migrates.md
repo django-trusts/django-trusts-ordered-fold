@@ -27,7 +27,7 @@ Django app; host apps subclass `OrderedFoldImplementationConfig`.
 | Registration | `backend.register_ordered_fold(source, fold)` or P1 forwarder onto Core | `register_ordered_fold(backend, source, fold)` on an **OrderedFold** handle |
 | Handle | Core `BackendHandle` + `TrustsRegistry` | `OrderedFoldBackendHandle` + `OrderedFoldRegistry` |
 | Concrete backend | n/a (P1) | **`trusts_ordered_fold.backends.TrustsOrderedFoldModelBackend`** in `AUTHENTICATION_BACKENDS` |
-| Implementation owner | relationship `TrustsImplementationConfig` | `_authorization_family = 'ordered_fold'` via `OrderedFoldImplementationConfig` |
+| Implementation owner | relationship `TrustsImplementationConfig` | subclass `OrderedFoldImplementationConfig` (discriminator alone is not enough) |
 | Vendor check | Core `trusts.E006` | **`trusts_ordered_fold.E001`** (registered on package import) |
 | Engine / PostgreSQL renderer | `trusts.ordered_fold` | this package (`trusts_ordered_fold.engine`) |
 | QuerySet / guard / common-permission | Core aggregates (relationship-family after C1) | `trusts_ordered_fold.granted`, `AuthorizedQuerySet`, `authorization_required`, `common_permissions` |
@@ -85,6 +85,8 @@ path stays Core-owned until C2. Do not reclaim it during coexistence.
 | Applicable fold, vendor ≠ PostgreSQL | `TrustsConfigurationError` when the fold backend is reached |
 | `trusts_ordered_fold.E001` | Blocks deployment on non-PostgreSQL aliases with a live fold |
 | Silenced E001 | Does **not** create a fallback grant |
+| Family-local `authorization_required` | Runtime fail-closed (zero SQL) when there is no `auth.Permission` fold plan, the object `pk` is missing, or the request user has no primary key. Core `trusts.E008` scans only Core decorator declarations and relationship-family handles; this slice does **not** register `trusts_ordered_fold.E002` |
+| Family-local `common_permissions` | Fold-family handles only; relationship handles are omitted |
 | Core kernel suite at the C1 pin | Unchanged (this package does not edit Core) |
 
 ## Migration-bot checklist
@@ -126,7 +128,8 @@ Then:
 - [ ] Replace `from trusts.core import OrderedFold, PermissionMaskDomain, MaskEntry, PolarityMap, FlatToken` with `from trusts_ordered_fold import …`.
 - [ ] Replace `backend.register_ordered_fold(source, fold)` call sites with `register_ordered_fold(backend, source, fold)`.
 - [ ] List `trusts_ordered_fold.backends.TrustsOrderedFoldModelBackend` (or a subclass) in `AUTHENTICATION_BACKENDS`.
-- [ ] Own that path from `OrderedFoldImplementationConfig` (or a config with `_authorization_family = 'ordered_fold'`).
+- [ ] Own that path by subclassing `OrderedFoldImplementationConfig`. Do not set `_authorization_family = 'ordered_fold'` alone on Core `TrustsImplementationConfig`; that still creates `TrustsRegistry` / `BackendHandle` and `register_ordered_fold()` rejects it.
+- [ ] Import family-local `authorization_required` and `common_permissions` from `trusts_ordered_fold`. Guard completeness is runtime fail-closed; Core `trusts.E008` does not see fold declarations, and this slice does not register `trusts_ordered_fold.E002`.
 - [ ] Do not import `trusts.ordered_fold` from this package. Leave that module to Core until C2.
 - [ ] Confirm the five types are extension-owned (not Core `is` identity).
 - [ ] Confirm registration acceptance, rejection, freeze, exact-path isolation, and 0 SQL against Core `6934894489d4fc0e46de88b55b9a27f5f2eb2b41`.

@@ -1,4 +1,10 @@
-"""Family-local OrderedFold view guard."""
+"""Family-local OrderedFold view guard.
+
+Completeness is runtime fail-closed (zero SQL) before the superuser
+shortcut. This module does not register a deploy-time check id; Core
+``trusts.E008`` scans only Core decorator declarations and
+relationship-family handles.
+"""
 
 from functools import reduce, wraps
 from operator import or_
@@ -11,11 +17,6 @@ from django.http import Http404
 from trusts.core import TrustsConfigurationError
 from trusts.query import is_active_principal
 from trusts_ordered_fold.query import _ordered_fold_implementation_handles, granted
-
-
-CHECK_ID_AUTHORIZATION_REQUIRED = 'trusts_ordered_fold.E002'
-
-_declared_authorization_guards = []
 
 
 def _guard_model(model):
@@ -72,12 +73,6 @@ def _guard_conditions(conditions):
             )
         seen.add(name)
     return conditions
-
-
-def _remember_authorization_guard(model, permission, conditions):
-    entry = (model, permission, conditions)
-    if entry not in _declared_authorization_guards:
-        _declared_authorization_guards.append(entry)
 
 
 def _coerce_pk(model, raw):
@@ -298,7 +293,6 @@ def authorization_required(model, permission, conditions=()):
     model = _guard_model(model)
     _guard_permission(model, permission)
     conditions = _guard_conditions(conditions)
-    _remember_authorization_guard(model, permission, conditions)
 
     def decorator(view_func):
         @wraps(view_func)

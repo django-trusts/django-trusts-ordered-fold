@@ -2,8 +2,8 @@
 
 Import root is ``trusts_ordered_fold``, not ``trusts.ordered_fold``.
 This package owns the OrderedFold engine and the concrete
-``TrustsOrderedFoldModelBackend``. Core still ships shims until C2;
-do not import ``trusts.ordered_fold`` from this package.
+``TrustsOrderedFoldModelBackend``. Core C2 deleted the provisional
+shims; do not import ``trusts.ordered_fold``.
 
 Importing this module registers system check ``trusts_ordered_fold.E001``.
 """

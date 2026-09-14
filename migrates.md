@@ -1,8 +1,9 @@
 # migrates.md — django-trusts-ordered-fold 1.0.0.dev0
 
 This file is the **P2 engine + backend** route. The engine lives in this
-package. Core still ships shims at
-`6934894489d4fc0e46de88b55b9a27f5f2eb2b41` until C2.
+package. Pair against Core C2
+`72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b`, which deleted the
+provisional Core shims.
 
 Do **not** add `'trusts'` or `'trusts_ordered_fold'` to
 `INSTALLED_APPS`. Core is a Python library. This package ships no
@@ -57,12 +58,13 @@ from trusts_ordered_fold import (
 register_ordered_fold(backend, Ace, OrderedFold(...))
 ```
 
-The five declaration types are **extension-owned**. They are not the
-same objects as Core's remaining shims. Register through this package's
-function and handle; do not call Core `BackendHandle.register_ordered_fold`.
+The five declaration types are **extension-owned**. C2 deleted the
+Core re-exports (`trusts.core.OrderedFold` and siblings) and
+`BackendHandle.register_ordered_fold`. Register through this package's
+function and handle.
 
-Do **not** import `trusts.ordered_fold` from this package. That module
-path stays Core-owned until C2. Do not reclaim it during coexistence.
+`trusts.ordered_fold` is deleted from Core. Importing it is
+`ModuleNotFoundError`. Do not reclaim that path.
 
 ## Behavior in P2
 
@@ -87,7 +89,7 @@ path stays Core-owned until C2. Do not reclaim it during coexistence.
 | Silenced E001 | Does **not** create a fallback grant |
 | Family-local `authorization_required` | Runtime fail-closed (zero SQL) when there is no `auth.Permission` fold plan, the object `pk` is missing, or the request user has no primary key. Core `trusts.E008` scans only Core decorator declarations and relationship-family handles; this slice does **not** register `trusts_ordered_fold.E002` |
 | Family-local `common_permissions` | Fold-family handles only; relationship handles are omitted |
-| Core kernel suite at the C1 pin | Unchanged (this package does not edit Core) |
+| Core kernel suite at the C2 pin | Unchanged (this package does not edit Core) |
 
 ## Migration-bot checklist
 
@@ -124,15 +126,15 @@ SILENCED_SYSTEM_CHECKS.*E001
 Then:
 
 - [ ] Install `django-trusts-ordered-fold` (it requires `django-trusts>=1.0.0.dev3,<2`).
-- [ ] Pin Core at C1 `6934894489d4fc0e46de88b55b9a27f5f2eb2b41` or later on `DEV_standalone_ordered_fold`.
+- [ ] Pin Core at C2 `72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b` on `DEV_standalone_ordered_fold`.
 - [ ] Replace `from trusts.core import OrderedFold, PermissionMaskDomain, MaskEntry, PolarityMap, FlatToken` with `from trusts_ordered_fold import …`.
 - [ ] Replace `backend.register_ordered_fold(source, fold)` call sites with `register_ordered_fold(backend, source, fold)`.
 - [ ] List `trusts_ordered_fold.backends.TrustsOrderedFoldModelBackend` (or a subclass) in `AUTHENTICATION_BACKENDS`.
 - [ ] Own that path by subclassing `OrderedFoldImplementationConfig`. Do not set `_authorization_family = 'ordered_fold'` alone on Core `TrustsImplementationConfig`; that still creates `TrustsRegistry` / `BackendHandle` and `register_ordered_fold()` rejects it.
 - [ ] Import family-local `authorization_required` and `common_permissions` from `trusts_ordered_fold`. Guard completeness is runtime fail-closed; Core `trusts.E008` does not see fold declarations, and this slice does not register `trusts_ordered_fold.E002`.
-- [ ] Do not import `trusts.ordered_fold` from this package. Leave that module to Core until C2.
+- [ ] Do not import `trusts.ordered_fold`. Core C2 deleted that module (`ModuleNotFoundError`).
 - [ ] Confirm the five types are extension-owned (not Core `is` identity).
-- [ ] Confirm registration acceptance, rejection, freeze, exact-path isolation, and 0 SQL against Core `6934894489d4fc0e46de88b55b9a27f5f2eb2b41`.
+- [ ] Confirm registration acceptance, rejection, freeze, exact-path isolation, and 0 SQL against Core `72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b`.
 - [ ] Confirm applicable evaluation is one authorization SQL and inapplicable is 0 SQL.
 - [ ] Confirm named filters restrict and never create a grant.
 - [ ] Confirm unsupported vendors raise `TrustsConfigurationError` when the fold backend is reached.
@@ -144,7 +146,7 @@ Then:
 - [ ] Detect remaining Core fold imports (`trusts.core` fold names, `trusts.ordered_fold`, `.register_strategy(`).
 - [ ] Detect single-backend mixed relationship+fold registration that assumed `#187` same-plan OR; this slice requires an OrderedFold backend path.
 - [ ] Drop XOR / `#187` workarounds that assumed one plan.
-- [ ] Windows `compat` floor still accepts Core `register_ordered_fold` until W.
+- [ ] Leftover Core `register_ordered_fold` callers fail loud (`AttributeError`). Windows W owns the AccessCheck floor; this slice does not redesign Windows.
 - [ ] Silenced `trusts.E006` becomes `trusts_ordered_fold.E001`; silencing still does not create a fallback grant.
 - [ ] Confirm `pip` refuses core below `1.0.0.dev3` against this wheel.
 - [ ] Leave package version at `1.0.0.dev0` and core floor at `1.0.0.dev3`.

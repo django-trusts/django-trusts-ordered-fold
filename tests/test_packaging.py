@@ -1,4 +1,4 @@
-"""Source-tree proofs that P2 owns the engine and pins C1."""
+"""Source-tree proofs that P2 owns the engine and pins C2."""
 
 from pathlib import Path
 
@@ -6,7 +6,7 @@ from django.test import SimpleTestCase
 
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPANION = '6934894489d4fc0e46de88b55b9a27f5f2eb2b41'
+COMPANION = '72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b'
 
 
 class OrderedFoldSourceLayoutTests(SimpleTestCase):

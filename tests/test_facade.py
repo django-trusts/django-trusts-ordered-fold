@@ -39,11 +39,14 @@ class FacadeImportTest(SimpleTestCase):
         )
 
     def test_declaration_types_are_extension_owned(self):
-        self.assertIsNot(OrderedFold, core.OrderedFold)
-        self.assertIsNot(PermissionMaskDomain, core.PermissionMaskDomain)
-        self.assertIsNot(MaskEntry, core.MaskEntry)
-        self.assertIsNot(PolarityMap, core.PolarityMap)
-        self.assertIsNot(FlatToken, core.FlatToken)
+        for name in (
+            'OrderedFold',
+            'PermissionMaskDomain',
+            'MaskEntry',
+            'PolarityMap',
+            'FlatToken',
+        ):
+            self.assertFalse(hasattr(core, name))
         self.assertEqual(OrderedFold.__module__, 'trusts_ordered_fold')
         self.assertEqual(register_ordered_fold.__module__, 'trusts_ordered_fold.registry')
 
@@ -55,10 +58,10 @@ class FacadeImportTest(SimpleTestCase):
         )
 
     def test_import_root_is_not_trusts_ordered_fold_submodule(self):
-        import trusts.ordered_fold as core_impl
-
-        self.assertNotEqual(package.__file__, core_impl.__file__)
-        self.assertNotIn('trusts_ordered_fold', core_impl.__file__)
+        with self.assertRaises(ModuleNotFoundError):
+            __import__('trusts.ordered_fold')
+        self.assertEqual(package.__name__, 'trusts_ordered_fold')
+        self.assertNotIn('/trusts/ordered_fold.py', package.__file__)
 
     def test_package_and_register_are_marked_provisional(self):
         package_doc = getdoc(package)

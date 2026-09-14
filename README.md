@@ -4,8 +4,7 @@ PostgreSQL ordered allow/deny authorization backend for django-trusts.
 
 This package owns the OrderedFold engine and the concrete
 `TrustsOrderedFoldModelBackend`. Import root is `trusts_ordered_fold`.
-Do **not** import `trusts.ordered_fold` from this package — that module
-remains Core-owned until Core deletion.
+Do **not** import `trusts.ordered_fold` — Core C2 deleted that module.
 
 ## Install
 
@@ -75,7 +74,7 @@ raises `TrustsConfigurationError`.
 - Python 3.12, 3.13, and 3.14
 - Django 6.1
 - django-trusts 1.x, installed as a dependency and tested at Core
-  `6934894489d4fc0e46de88b55b9a27f5f2eb2b41`
+  `72b41a0cd1d3746ac0eb82ad220eec9b559d6f7b`
 
 ## Known limitations
 
@@ -87,9 +86,11 @@ raises `TrustsConfigurationError`.
 - Mixed relationship/OrderedFold QuerySet and common-permission
   combination is not a 1.0 contract. Object-level `User.has_perm` uses
   Django's ordered backend OR across families.
-- Do not import Core renderer helpers (`OrderedFoldAllowed`,
-  `RegisteredStrategy`, `ordered_fold_connection_supported`) from
-  `trusts.ordered_fold`.
+- Do not import deleted Core fold names (`trusts.ordered_fold`,
+  `from trusts.core import OrderedFold`, or Core renderer helpers
+  `OrderedFoldAllowed`, `RegisteredStrategy`,
+  `ordered_fold_connection_supported`). Those live only on this
+  package, and the renderer helpers are not public.
 
 ## Migration and API
 

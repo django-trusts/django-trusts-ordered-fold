@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-trusts-ordered-fold"
+version = "1.0.0.dev0"
+description = "PostgreSQL ordered allow/deny authorization backend for django-trusts"
+readme = "README.md"
+license = "BSD-2-Clause"
+authors = [
+    { name = "Thomas Yip", email = "thomasleaf@gmail.com" },
+]
+requires-python = ">=3.12"
+dependencies = [
+    "django-trusts>=1.0.0.dev3,<2",
+    "Django>=6.1,<6.2",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Django",
+    "Framework :: Django :: 6.1",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+]
+keywords = ["django", "authorization", "permissions", "ordered-fold"]
+
+[project.urls]
+Homepage = "https://github.com/django-trusts/django-trusts-ordered-fold"
+Repository = "https://github.com/django-trusts/django-trusts-ordered-fold"
+Issues = "https://github.com/django-trusts/django-trusts-ordered-fold/issues"
+Core = "https://github.com/django-trusts/django-trusts"
+Migration = "https://github.com/django-trusts/django-trusts-ordered-fold/blob/DEV_standalone_ordered_fold/migrates.md"
+
+[project.optional-dependencies]
+test = [
+    "coverage>=7.0",
+]
+
+# django-trusts>=1.0.0.dev3,<2 is required. Until 1.x is on PyPI,
+# CI installs Core from the pinned git SHA (see requirements.txt).
+# Import root is trusts_ordered_fold, not trusts.ordered_fold.
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+packages = [
+    "trusts_ordered_fold",
+]
+
+[tool.setuptools.package-data]
+trusts_ordered_fold = ["*"]

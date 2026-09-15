@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: [DEV_standalone_ordered_fold]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Core C2 squash (django-trusts/django-trusts#197 / #195).
+  COMPANION_KERNEL_SHA: 9875c02571b9b978c27b26ce48d0c62154547a86
+
+jobs:
+  tests:
+    name: tests vs pinned core (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    env:
+      KERNEL_CHECKOUT: ${{ github.workspace }}/.deps/django-trusts
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: django-trusts/django-trusts
+        ref: ${{ env.COMPANION_KERNEL_SHA }}
+        path: .deps/django-trusts
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install pinned core then OrderedFold engine
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install "Django>=6.1,<6.2" coverage
+        python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
+        python -m pip install -e . --config-settings editable_mode=compat
+    - name: Exact pinned core head
+      run: |
+        test "${COMPANION_KERNEL_SHA}" = "9875c02571b9b978c27b26ce48d0c62154547a86"
+        test "$(git -C .deps/django-trusts rev-parse HEAD)" = "9875c02571b9b978c27b26ce48d0c62154547a86"
+    - name: Package engine tests
+      run: |
+        coverage run -m tests.runtests
+        coverage report
+
+  tests-orderedfold-pg:
+    name: tests OrderedFold PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: trusts
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      KERNEL_CHECKOUT: ${{ github.workspace }}/.deps/django-trusts
+      TRUSTS_TEST_DATABASE: postgresql
+      TRUSTS_PG_NAME: trusts
+      TRUSTS_PG_USER: postgres
+      TRUSTS_PG_PASSWORD: postgres
+      TRUSTS_PG_HOST: 127.0.0.1
+      TRUSTS_PG_PORT: 5432
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: django-trusts/django-trusts
+        ref: ${{ env.COMPANION_KERNEL_SHA }}
+        path: .deps/django-trusts
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install pinned core, package, and psycopg
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install "Django>=6.1,<6.2" "psycopg[binary]" coverage
+        python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
+        python -m pip install -e . --config-settings editable_mode=compat
+    - name: OrderedFold PostgreSQL regressions
+      env:
+        DJANGO_SETTINGS_MODULE: tests.fold_settings
+      run: python -m tests.runtests tests.test_issue100 tests.test_fixed_query tests.test_backend
+
+  core-matrix:
+    name: pinned core kernel matrix
+    runs-on: ubuntu-latest
+    env:
+      KERNEL_CHECKOUT: ${{ github.workspace }}/.deps/django-trusts
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: django-trusts/django-trusts
+        ref: ${{ env.COMPANION_KERNEL_SHA }}
+        path: .deps/django-trusts
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install pinned core then engine
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install "Django>=6.1,<6.2" coverage
+        python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
+        python -m pip install -e . --config-settings editable_mode=compat
+    - name: Core kernel suite at the C2 pin
+      working-directory: .deps/django-trusts
+      run: python -m tests.runtests
+
+  package:
+    name: package / wheel
+    runs-on: ubuntu-latest
+    env:
+      KERNEL_CHECKOUT: ${{ github.workspace }}/.deps/django-trusts
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: django-trusts/django-trusts
+        ref: ${{ env.COMPANION_KERNEL_SHA }}
+        path: .deps/django-trusts
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install packaging tools and pinned core
+      run: |
+        python -m pip install --upgrade pip build twine "Django>=6.1,<6.2"
+        python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
+    - name: Build sdist and wheel
+      run: |
+        python -m build
+        twine check dist/*
+    - name: Package metadata (version, core floor, LICENSE)
+      run: python scripts/verify-package-metadata.py
+    - name: Wheel install + public import from outside the checkout
+      run: |
+        WORK="$(mktemp -d)"
+        python -m pip install "Django>=6.1,<6.2"
+        python -m pip install -e .deps/django-trusts --config-settings editable_mode=compat
+        VERIFY_WORKDIR="$WORK" python scripts/verify-wheel-install.py

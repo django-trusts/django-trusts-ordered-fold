@@ -1,13 +1,9 @@
-"""Installed OrderedFold implementation owner for package tests."""
+"""Host app for ordered-fold object checks."""
 
-from trusts_ordered_fold.apps import OrderedFoldImplementationConfig
-
-
-FOLD_BACKEND = 'trusts_ordered_fold.backends.TrustsOrderedFoldModelBackend'
+from trusts.apps import TrustsConfigMixin
 
 
-class FoldHostConfig(OrderedFoldImplementationConfig):
+class FoldHostConfig(TrustsConfigMixin):
     name = 'tests.fold_host'
     label = 'fold_host'
     default = True
-    trusts_backend_paths = (FOLD_BACKEND,)

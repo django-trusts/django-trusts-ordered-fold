@@ -34,20 +34,10 @@ settings.configure(
 )
 django.setup()
 from trusts_ordered_fold import (
-    FlatToken,
-    MaskEntry,
-    OrderedFold,
-    PermissionMaskDomain,
-    PolarityMap,
+    OrderedFoldQueryCompiler,
     TrustsOrderedFoldModelBackend,
-    register_ordered_fold,
 )
-assert OrderedFold.__module__ == 'trusts_ordered_fold'
-assert PermissionMaskDomain.__module__ == 'trusts_ordered_fold'
-assert MaskEntry.__module__ == 'trusts_ordered_fold'
-assert PolarityMap.__module__ == 'trusts_ordered_fold'
-assert FlatToken.__module__ == 'trusts_ordered_fold'
-assert callable(register_ordered_fold)
+assert OrderedFoldQueryCompiler.__module__ == 'trusts_ordered_fold.compiler'
 assert TrustsOrderedFoldModelBackend.__name__ == 'TrustsOrderedFoldModelBackend'
 print('wheel import ok')
 """

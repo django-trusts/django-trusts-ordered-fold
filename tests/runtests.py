@@ -32,6 +32,7 @@ from django.conf import settings
 from django.test.utils import get_runner
 
 NORMAL_SUITE = [
+    'tests.test_has_perm',
     'tests.test_packaging',
     'tests.test_facade',
     'tests.test_register',

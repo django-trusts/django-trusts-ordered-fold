@@ -14,8 +14,7 @@ INSTALLED_APPS = (
 )
 
 AUTHENTICATION_BACKENDS = (
-    'django.contrib.auth.backends.ModelBackend',
-    'trusts_ordered_fold.backends.TrustsOrderedFoldModelBackend',
+    'tests.fold_host.backends.FoldHostBackend',
 )
 
 if os.environ.get('TRUSTS_TEST_DATABASE') == 'postgresql':

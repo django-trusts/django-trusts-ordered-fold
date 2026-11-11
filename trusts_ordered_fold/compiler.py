@@ -9,9 +9,12 @@ The object is granted when every requested bit has been cleared.
 
 from django.core.exceptions import FieldDoesNotExist
 from django.db import connection
-from django.db.models import BooleanField, F, Model, Subquery
+from django.db.models import (
+    BooleanField, F, Model, OuterRef, Q, QuerySet, Subquery,
+)
 
 from trusts.errors import TrustsConfigurationError
+from trusts.plan.predicates import bind_record_qs
 from trusts.plan.relations import PlanQueryCompiler
 
 
@@ -21,7 +24,7 @@ class _RemainingBits(Subquery):
     output_field = BooleanField()
 
     def __init__(self, rows, *, permission, permission_model, content_model,
-                 allow, deny, masks, user_pk, token_sql, token_params):
+                 allow, deny, masks, token, user_pk=None, user_ref=None):
         super().__init__(rows, output_field=BooleanField())
         self.permission = permission
         self.permission_model = permission_model
@@ -29,12 +32,14 @@ class _RemainingBits(Subquery):
         self.allow = allow
         self.deny = deny
         self.masks = masks
+        self.token = token
         self.user_pk = user_pk
-        self.token_sql = token_sql
-        self.token_params = token_params
+        self.user_ref = user_ref
 
     def get_source_expressions(self):
         exprs = [self.query]
+        if self.user_ref is not None:
+            exprs.append(self.user_ref)
         permission = self.permission
         if (
             not isinstance(permission, Model)
@@ -45,8 +50,12 @@ class _RemainingBits(Subquery):
 
     def set_source_expressions(self, exprs):
         self.query = exprs[0]
-        if len(exprs) > 1:
-            self.permission = exprs[1]
+        index = 1
+        if self.user_ref is not None:
+            self.user_ref = exprs[index]
+            index += 1
+        if index < len(exprs):
+            self.permission = exprs[index]
 
     def as_sql(self, compiler, connection, template=None, **extra_context):
         if connection.vendor != 'postgresql':
@@ -61,6 +70,14 @@ class _RemainingBits(Subquery):
         mask = quote('fold_mask')
         trustee = quote('fold_trustee')
         row_pk = quote('fold_pk')
+        if self.user_ref is not None:
+            user_sql, user_params = compiler.compile(self.user_ref)
+        else:
+            user_sql, user_params = '%s', (self.user_pk,)
+        user_params = tuple(user_params)
+        token_sql, token_params = _token_sql(self.token, user_sql, connection)
+        if token_sql is None:
+            return 'FALSE', ()
         perm_sql, perm_params = _permission_pk_sql(self.permission, compiler)
         mask_sql, mask_params = _mask_sql(
             connection, self.permission_model, self.content_model,
@@ -106,7 +123,7 @@ class _RemainingBits(Subquery):
             'ORDER BY step DESC LIMIT 1'
             '))'
         ) % (
-            self.token_sql,
+            token_sql,
             mask_sql,
             ordinal, row_pk, polarity, mask,
             ordinal, row_pk,
@@ -116,7 +133,9 @@ class _RemainingBits(Subquery):
             polarity, polarity, ordinal, mask, mask, trustee,
         )
         params = []
-        params.extend(self.token_params)
+        params.extend(user_params)
+        params.extend(token_params)
+        params.extend(user_params if self.token else ())
         params.extend(mask_params)
         params.extend(perm_params)
         params.extend(witness_params)
@@ -179,6 +198,46 @@ def _mask_sql(connection, permission_model, content_model, masks, perm_sql):
     return sql, tuple(params)
 
 
+def _token_sql(token, user_sql, connection):
+    """Identity set. ``user_sql`` is the candidate user's primary key."""
+    if token is None:
+        return 'SELECT (%s) AS ident' % user_sql, ()
+    principal, membership = token
+    quote = connection.ops.quote_name
+
+    def column(model, name):
+        try:
+            field = model._meta.get_field(name)
+        except FieldDoesNotExist:
+            return None
+        return getattr(field, 'column', None) or None
+
+    user_col = column(principal, 'user')
+    ident_col = column(principal, 'identity')
+    member_col = column(membership, 'member')
+    group_col = column(membership, 'group')
+    if None in (user_col, ident_col, member_col, group_col):
+        return None, ()
+    sql = (
+        'SELECT %s AS ident FROM %s WHERE %s = (%s) '
+        'UNION SELECT %s AS ident FROM %s WHERE %s IN ('
+        'SELECT %s FROM %s WHERE %s = (%s))'
+    ) % (
+        quote(ident_col),
+        quote(principal._meta.db_table),
+        quote(user_col),
+        user_sql,
+        quote(group_col),
+        quote(membership._meta.db_table),
+        quote(member_col),
+        quote(ident_col),
+        quote(principal._meta.db_table),
+        quote(user_col),
+        user_sql,
+    )
+    return sql, ()
+
+
 class OrderedFoldQueryCompiler(PlanQueryCompiler):
     """Object-check compiler. Other inquiries do not OR these rows.
 
@@ -199,33 +258,60 @@ class OrderedFoldQueryCompiler(PlanQueryCompiler):
         self.masks = tuple(masks)
         self.token = token
 
+    def replaces_grant(self):
+        return True
+
     def combine(self, plan, witnesses):
-        """This compiler does not OR. ``complete_exists`` answers instead."""
+        """This compiler does not OR. The fold predicate answers instead."""
         return None
 
     def complete_exists(self, plan, candidates, user, permission):
-        if connection.vendor != 'postgresql':
+        """Content-side fold. One object or a content queryset."""
+        if not isinstance(user, Model) or user.pk is None:
             return None
+        if isinstance(candidates, Model):
+            if candidates.pk is None:
+                return None
+        elif not isinstance(candidates, QuerySet):
+            return None
+        rows = self._content_rows(plan)
+        if rows is None:
+            return None
+        return self._fold(plan, rows, permission, user_pk=user.pk)
+
+    def users_exist(self, plan, content, permission):
+        """Same fold, with the candidate user as the outer row."""
+        if not isinstance(content, Model) or content.pk is None:
+            return None
+        record = self._record(plan)
+        if record is None:
+            return None
+        try:
+            bound = getattr(content, record.content_target)
+        except AttributeError:
+            return None
+        rows = bind_record_qs(
+            record,
+            correlation=Q(**{record.content_field: bound}),
+            content_identity=plan.content_identity or content.__class__,
+        )
+        return self._fold(
+            plan, rows, permission,
+            user_ref=OuterRef(record.user_model._meta.pk.attname),
+        )
+
+    def _record(self, plan):
         if (
-            not plan.records
+            connection.vendor != 'postgresql'
+            or not plan.records
             or plan.delegations
-            or not isinstance(candidates, Model)
-            or candidates.pk is None
-            or not isinstance(user, Model)
-            or user.pk is None
             or not self.masks
+            or len(plan.records) != 1
         ):
             return None
-        for record in plan.records:
-            if record.along is not None or record.via is not None:
-                return None
-        witnesses = plan.grant_witnesses('content_field')
-        if len(witnesses) != 1:
+        record = plan.records[0]
+        if record.along is not None or record.via is not None:
             return None
-        witness = witnesses[0]
-        if witness.rows is None or witness.reach is not None:
-            return None
-        record = witness.record
         if (
             self._plain(record.root, self.order) is None
             or self._plain(record.root, self.polarity) is None
@@ -233,6 +319,22 @@ class OrderedFoldQueryCompiler(PlanQueryCompiler):
             or self._column(record.root, self.trustee) is None
         ):
             return None
+        return record
+
+    def _content_rows(self, plan):
+        record = self._record(plan)
+        if record is None:
+            return None
+        witnesses = plan.grant_witnesses('content_field')
+        if len(witnesses) != 1:
+            return None
+        witness = witnesses[0]
+        if witness.rows is None or witness.reach is not None:
+            return None
+        return witness.rows
+
+    def _fold(self, plan, rows, permission, *, user_pk=None, user_ref=None):
+        record = plan.records[0]
         permission_model = _asked_permission_model(permission, record)
         if permission_model is None:
             return None
@@ -240,10 +342,9 @@ class OrderedFoldQueryCompiler(PlanQueryCompiler):
             permission_model._meta.get_field('codename')
         except FieldDoesNotExist:
             return None
-        token_sql, token_params = self._token(user)
-        if token_sql is None:
+        if self.token is not None and _token_sql(self.token, '%s', connection)[0] is None:
             return None
-        projected = witness.rows.values(
+        projected = rows.values(
             fold_ord=F(self.order),
             fold_pk=F('pk'),
             fold_polarity=F(self.polarity),
@@ -258,41 +359,10 @@ class OrderedFoldQueryCompiler(PlanQueryCompiler):
             allow=self.allow,
             deny=self.deny,
             masks=self.masks,
-            user_pk=user.pk,
-            token_sql=token_sql,
-            token_params=token_params,
+            token=self.token,
+            user_pk=user_pk,
+            user_ref=user_ref,
         )
-
-    def _token(self, user):
-        if self.token is None:
-            return 'SELECT %s AS ident', (user.pk,)
-        principal, membership = self.token
-        try:
-            user_col = self._column(principal, 'user')
-            ident_col = self._column(principal, 'identity')
-            member_col = self._column(membership, 'member')
-            group_col = self._column(membership, 'group')
-        except FieldDoesNotExist:
-            return None, ()
-        if None in (user_col, ident_col, member_col, group_col):
-            return None, ()
-        quote = connection.ops.quote_name
-        sql = (
-            'SELECT %s AS ident FROM %s WHERE %s = %%s '
-            'UNION SELECT %s AS ident FROM %s WHERE %s IN ('
-            'SELECT %s FROM %s WHERE %s = %%s)'
-        ) % (
-            quote(ident_col),
-            quote(principal._meta.db_table),
-            quote(user_col),
-            quote(group_col),
-            quote(membership._meta.db_table),
-            quote(member_col),
-            quote(ident_col),
-            quote(principal._meta.db_table),
-            quote(user_col),
-        )
-        return sql, (user.pk, user.pk)
 
     @staticmethod
     def _plain(model, name):

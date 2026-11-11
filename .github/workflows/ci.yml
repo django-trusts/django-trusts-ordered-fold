@@ -10,7 +10,7 @@ permissions:
 
 env:
   # Experiment branch cursor/plugin-seam-ordered-fold-86a7. Do not merge.
-  COMPANION_KERNEL_SHA: cefffc327eb68c9c92ea7202dd24e6913c041ee6
+  COMPANION_KERNEL_SHA: 08efb1a4698cdafde7f2a45fb0334e89f8862e3e
 
 jobs:
   tests:
@@ -40,8 +40,8 @@ jobs:
         python -m pip install -e . --config-settings editable_mode=compat
     - name: Exact pinned core head
       run: |
-        test "${COMPANION_KERNEL_SHA}" = "cefffc327eb68c9c92ea7202dd24e6913c041ee6"
-        test "$(git -C .deps/django-trusts rev-parse HEAD)" = "cefffc327eb68c9c92ea7202dd24e6913c041ee6"
+        test "${COMPANION_KERNEL_SHA}" = "08efb1a4698cdafde7f2a45fb0334e89f8862e3e"
+        test "$(git -C .deps/django-trusts rev-parse HEAD)" = "08efb1a4698cdafde7f2a45fb0334e89f8862e3e"
     - name: Package engine tests
       run: |
         coverage run -m tests.runtests

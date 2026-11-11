@@ -68,6 +68,16 @@ def _perm(permission_model, action, document_model):
     )
 
 
+def _auth_perm(model, codename):
+    content_type = ContentType.objects.get_for_model(model)
+    permission, _created = Permission.objects.get_or_create(
+        content_type=content_type,
+        codename=codename,
+        defaults={'name': codename},
+    )
+    return permission
+
+
 @skipUnless(_postgres(), 'Ordered fold SQL is PostgreSQL-only.')
 @override_settings(AUTHENTICATION_BACKENDS=(
     'tests.fold_host.backends.FoldHostBackend',
@@ -82,12 +92,6 @@ class OrderedFoldHasPermTests(TransactionTestCase):
     def setUp(self):
         User = get_user_model()
 
-        class Perm(models.Model):
-            codename = models.CharField(max_length=64)
-
-            class Meta:
-                app_label = 'tests'
-
         class Document(models.Model):
             title = models.CharField(max_length=40)
 
@@ -97,7 +101,7 @@ class OrderedFoldHasPermTests(TransactionTestCase):
         class Ace(models.Model):
             document = models.ForeignKey(Document, on_delete=models.CASCADE)
             permission = models.ForeignKey(
-                Perm, null=True, on_delete=models.CASCADE,
+                Permission, null=True, on_delete=models.CASCADE,
             )
             user = models.ForeignKey(User, on_delete=models.CASCADE)
             ace_order = models.IntegerField()
@@ -107,16 +111,15 @@ class OrderedFoldHasPermTests(TransactionTestCase):
             class Meta:
                 app_label = 'tests'
 
-        self.Perm = Perm
         self.Document = Document
         self.Ace = Ace
-        self._tables = _tables(Perm, Document, Ace)
+        self._tables = _tables(Document, Ace)
         self._tables.__enter__()
         self.alice = User.objects.create_user('alice-fold', password='x')
         self.bob = User.objects.create_user('bob-fold', password='x')
-        self.read = _perm(Perm, 'read', Document)
-        self.write = _perm(Perm, 'write', Document)
-        self.readwrite = _perm(Perm, 'readwrite', Document)
+        self.read = _auth_perm(Document, 'read_document')
+        self.write = _auth_perm(Document, 'write_document')
+        self.readwrite = _auth_perm(Document, 'readwrite_document')
         self.doc = Document.objects.create(title='target')
         self.other = Document.objects.create(title='other')
         self.backend = _install(lambda registry: registry.register(
@@ -132,6 +135,26 @@ class OrderedFoldHasPermTests(TransactionTestCase):
 
     def has_perm(self, user, perm, obj):
         return self.backend._catalog().has_permission(user, obj, perm)
+
+    def _agree(self, user, code, obj):
+        """has_perm, .permitted(), and get_permitted_users name the same fact."""
+        held = user.has_perm(code, obj)
+        codename = code.split('.', 1)[1]
+        permission = Permission.objects.get(
+            content_type=ContentType.objects.get_for_model(obj),
+            codename=codename,
+        )
+        self.assertIs(self.has_perm(user, permission, obj), held)
+        listed = set(
+            PermittedQuerySet(model=type(obj)).permitted(
+                code, user,
+            ).values_list('pk', flat=True)
+        )
+        self.assertIs(obj.pk in listed, held)
+        users = set(
+            compile_permitted_users(obj, code).values_list('pk', flat=True)
+        )
+        self.assertIs(user.pk in users, held)
 
     def _ace(self, *, order, polarity, mask, user=None, document=None):
         return self.Ace.objects.create(
@@ -280,17 +303,47 @@ class OrderedFoldHasPermTests(TransactionTestCase):
 
     def test_other_inquiries_do_not_overgrant(self):
         self._ace(order=0, polarity=ALLOW, mask=0x1)
-        self.assertIs(self.has_perm(self.alice, self.read, self.doc), True)
+        self._agree(self.alice, 'tests.read_document', self.doc)
+        self._agree(self.bob, 'tests.read_document', self.doc)
+        self._agree(self.alice, 'tests.write_document', self.doc)
         self.assertEqual(
             self.backend.get_all_permissions(self.alice, self.doc), set(),
         )
-        permitted = PermittedQuerySet(model=self.Document).permitted(
-            'tests.read_document', self.alice,
-        )
-        self.assertEqual(list(permitted), [])
-        self.assertEqual(
-            list(compile_permitted_users(self.doc, self.read)), [],
-        )
+
+    def test_inquiries_agree_on_null_and_other_trustee(self):
+        clean = self.Document.objects.create(title='clean')
+        denied = self.Document.objects.create(title='denied')
+        null_order = self.Document.objects.create(title='null-order')
+        foreign = self.Document.objects.create(title='foreign')
+        self._ace(order=0, polarity=ALLOW, mask=0x1, document=clean)
+        self._ace(order=0, polarity=DENY, mask=0x1, document=denied)
+        self._ace(order=1, polarity=ALLOW, mask=0x1, document=denied)
+        self._ace(order=1, polarity=ALLOW, mask=0x1, document=null_order)
+        self._ace(order=0, polarity=ALLOW, mask=-1, user=self.bob, document=foreign)
+        self._ace(order=1, polarity=ALLOW, mask=0x1, document=foreign)
+        table = self.Ace._meta.db_table
+        order_col = self.Ace._meta.get_field('ace_order').column
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'ALTER TABLE %s ALTER COLUMN %s DROP NOT NULL' % (
+                    connection.ops.quote_name(table),
+                    connection.ops.quote_name(order_col),
+                ),
+            )
+            cursor.execute(
+                'INSERT INTO %s (%s, %s, %s, %s, %s) VALUES (%%s, NULL, %%s, %%s, %%s)' % (
+                    connection.ops.quote_name(table),
+                    connection.ops.quote_name(self.Ace._meta.get_field('document').column),
+                    connection.ops.quote_name(order_col),
+                    connection.ops.quote_name(self.Ace._meta.get_field('ace_type').column),
+                    connection.ops.quote_name(self.Ace._meta.get_field('access_mask').column),
+                    connection.ops.quote_name(self.Ace._meta.get_field('user').column),
+                ),
+                [null_order.pk, ALLOW, 0x1, self.alice.pk],
+            )
+        for user in (self.alice, self.bob):
+            for obj in (self.doc, self.other, clean, denied, null_order, foreign):
+                self._agree(user, 'tests.read_document', obj)
 
     def test_inactive_and_anonymous_deny(self):
         self._ace(order=0, polarity=ALLOW, mask=0x1)
@@ -400,3 +453,92 @@ class OrderedFoldFlatTokenHasPermTests(TransactionTestCase):
             self.assertIs(catalog.has_permission(stranger, doc, read), False)
             Membership.objects.all().delete()
             self.assertIs(catalog.has_permission(alice, doc, read), False)
+
+
+@skipUnless(_postgres(), 'Ordered fold SQL is PostgreSQL-only.')
+@override_settings(AUTHENTICATION_BACKENDS=(
+    'tests.fold_host.backends.FoldHostBackend',
+))
+@isolate_apps(
+    'tests', 'tests.fold_host',
+    'django.contrib.auth', 'django.contrib.contenttypes',
+)
+class OrderedFoldColumnAgreementTests(TransactionTestCase):
+    """PK versus to_field, and a renamed order column, agree on all three inquiries."""
+
+    def test_to_field_and_db_column_agree(self):
+        User = get_user_model()
+
+        class Sheet(models.Model):
+            code = models.CharField(max_length=20, unique=True)
+
+            class Meta:
+                app_label = 'tests'
+
+        class Ace(models.Model):
+            sheet = models.ForeignKey(
+                Sheet, to_field='code', db_column='sheet_code',
+                on_delete=models.CASCADE,
+            )
+            permission = models.ForeignKey(
+                Permission, null=True, db_column='perm_id',
+                on_delete=models.CASCADE,
+            )
+            user = models.ForeignKey(
+                User, db_column='holder_id', on_delete=models.CASCADE,
+            )
+            ace_order = models.IntegerField(db_column='sort_key')
+            ace_type = models.IntegerField(db_column='effect')
+            access_mask = models.BigIntegerField(db_column='bits')
+
+            class Meta:
+                app_label = 'tests'
+
+        with _tables(Sheet, Ace):
+            alice = User.objects.create_user('alice-col', password='x')
+            bob = User.objects.create_user('bob-col', password='x')
+            _auth_perm(Sheet, 'read_sheet')
+            allowed = Sheet.objects.create(code='allowed')
+            denied = Sheet.objects.create(code='denied')
+            empty = Sheet.objects.create(code='empty')
+            Ace.objects.create(
+                sheet=allowed, user=alice, ace_order=0, ace_type=ALLOW,
+                access_mask=1,
+            )
+            Ace.objects.create(
+                sheet=denied, user=alice, ace_order=0, ace_type=DENY,
+                access_mask=1,
+            )
+            Ace.objects.create(
+                sheet=denied, user=alice, ace_order=1, ace_type=ALLOW,
+                access_mask=1,
+            )
+            backend = _install(lambda registry: registry.register(
+                trust=Ace, user='user', permission='permission', content='sheet',
+            ))
+            catalog = backend._catalog()
+            for user in (alice, bob):
+                for obj in (allowed, denied, empty):
+                    held = user.has_perm('tests.read_sheet', obj)
+                    self.assertIs(
+                        catalog.has_permission(
+                            user, obj,
+                            Permission.objects.get(
+                                content_type=ContentType.objects.get_for_model(Sheet),
+                                codename='read_sheet',
+                            ),
+                        ),
+                        held,
+                    )
+                    listed = set(
+                        PermittedQuerySet(model=Sheet).permitted(
+                            'tests.read_sheet', user,
+                        ).values_list('pk', flat=True)
+                    )
+                    self.assertIs(obj.pk in listed, held)
+                    users = set(
+                        compile_permitted_users(
+                            obj, 'tests.read_sheet',
+                        ).values_list('pk', flat=True)
+                    )
+                    self.assertIs(user.pk in users, held)

@@ -2,7 +2,7 @@
 
 This file is the **P2 engine + backend** route. The engine lives in this
 package. Pair against Core C2 squash
-`cefffc327eb68c9c92ea7202dd24e6913c041ee6` (django-trusts/django-trusts#197
+`08efb1a4698cdafde7f2a45fb0334e89f8862e3e` (django-trusts/django-trusts#197
 / #195), which deleted the
 provisional Core shims.
 
@@ -127,7 +127,7 @@ SILENCED_SYSTEM_CHECKS.*E001
 Then:
 
 - [ ] Install `django-trusts-ordered-fold` (it requires `django-trusts>=1.0.0.dev3,<2`).
-- [ ] Pin Core at C2 squash `cefffc327eb68c9c92ea7202dd24e6913c041ee6`.
+- [ ] Pin Core at C2 squash `08efb1a4698cdafde7f2a45fb0334e89f8862e3e`.
 - [ ] Replace `from trusts.core import OrderedFold, PermissionMaskDomain, MaskEntry, PolarityMap, FlatToken` with `from trusts_ordered_fold import …`.
 - [ ] Replace `backend.register_ordered_fold(source, fold)` call sites with `register_ordered_fold(backend, source, fold)`.
 - [ ] List `trusts_ordered_fold.backends.TrustsOrderedFoldModelBackend` (or a subclass) in `AUTHENTICATION_BACKENDS`.
@@ -135,7 +135,7 @@ Then:
 - [ ] Import family-local `authorization_required` and `common_permissions` from `trusts_ordered_fold`. Guard completeness is runtime fail-closed; Core `trusts.E008` does not see fold declarations, and this slice does not register `trusts_ordered_fold.E002`.
 - [ ] Do not import `trusts.ordered_fold`. Core C2 deleted that module (`ModuleNotFoundError`).
 - [ ] Confirm the five types are extension-owned (not Core `is` identity).
-- [ ] Confirm registration acceptance, rejection, freeze, exact-path isolation, and 0 SQL against Core `cefffc327eb68c9c92ea7202dd24e6913c041ee6`.
+- [ ] Confirm registration acceptance, rejection, freeze, exact-path isolation, and 0 SQL against Core `08efb1a4698cdafde7f2a45fb0334e89f8862e3e`.
 - [ ] Confirm applicable evaluation is one authorization SQL and inapplicable is 0 SQL.
 - [ ] Confirm named filters restrict and never create a grant.
 - [ ] Confirm unsupported vendors raise `TrustsConfigurationError` when the fold backend is reached.

@@ -8,7 +8,7 @@ points at `README.md`, not this file.
 ## Current pairing
 
 This tree is `django-trusts-ordered-fold==1.0.0.dev0` pairing against
-Core C2 squash `cefffc327eb68c9c92ea7202dd24e6913c041ee6`
+Core C2 squash `08efb1a4698cdafde7f2a45fb0334e89f8862e3e`
 (django-trusts/django-trusts#197 / #195).
 Core no longer ships OrderedFold shims
 (`BackendHandle.register_ordered_fold`, `trusts.ordered_fold`,
@@ -24,7 +24,7 @@ relationship registration, mixed plan, sibling borrowing,
 
 ## Verification
 
-Pair CI pins Core `cefffc327eb68c9c92ea7202dd24e6913c041ee6` only.
+Pair CI pins Core `08efb1a4698cdafde7f2a45fb0334e89f8862e3e` only.
 Package tests must prove public imports, extension-owned
 `register_ordered_fold`, registration acceptance/rejection, zero-SQL
 registration, exact-path ownership, freeze, validation, renderer,

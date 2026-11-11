@@ -346,10 +346,20 @@ class OrderedFoldHasPermTests(TransactionTestCase):
                 self._agree(user, 'tests.read_document', obj)
 
     def test_inactive_and_anonymous_deny(self):
-        self._ace(order=0, polarity=ALLOW, mask=0x1)
+        self._ace(order=0, polarity=ALLOW, mask=0x1, user=self.alice)
+        self._ace(order=0, polarity=ALLOW, mask=0x1, user=self.bob)
+        self._agree(self.alice, 'tests.read_document', self.doc)
+        self._agree(self.bob, 'tests.read_document', self.doc)
         self.alice.is_active = False
         self.alice.save(update_fields=['is_active'])
-        self.assertIs(self.has_perm(self.alice, self.read, self.doc), False)
+        self._agree(self.alice, 'tests.read_document', self.doc)
+        self._agree(self.bob, 'tests.read_document', self.doc)
+        users = set(
+            compile_permitted_users(self.doc, 'tests.read_document').values_list(
+                'pk', flat=True,
+            )
+        )
+        self.assertEqual(users, {self.bob.pk})
         self.assertIs(AnonymousUser().has_perm('tests.read_document', self.doc), False)
 
 

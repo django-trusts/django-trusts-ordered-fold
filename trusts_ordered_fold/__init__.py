@@ -8,7 +8,9 @@ The check grants when every requested bit is cleared. A NULL order,
 polarity, mask, or trustee, a negative mask, or any other polarity
 denies, including a row for another trustee.
 
-``has_perm`` and ``.permitted()`` run that same statement.
+``has_perm``, ``.permitted()``, and ``get_permitted_users`` run that
+same statement. An inactive user is denied on all three, by the same
+user rule as every other trusts inquiry.
 """
 
 from trusts_ordered_fold.backends import TrustsOrderedFoldModelBackend
